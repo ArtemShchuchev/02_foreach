@@ -1,12 +1,7 @@
 ﻿#include <chrono>
-#include <thread>
 #include <mutex>
-#include <atomic>
 #include <vector>
-#include <algorithm>
-#include <numeric>
 #include <future>
-#include <random>
 #include "SecondaryFunction.h"
 
 /*
@@ -21,7 +16,7 @@
 части контейнера.
 */
 
-// заполняет массив случайными значениями от 0 до 100
+// заполняет массив
 void fillArr(std::vector<int>& arr)
 {
 	//std::srand(static_cast<unsigned int>(std::time(nullptr)));
@@ -37,6 +32,7 @@ std::wostream& operator<< (std::wostream& out, const std::vector<int>& vect)
 	return out;
 }
 
+std::mutex m;
 // for_each буду делить на 3 потока
 template<class IT, class FN>
 FN foreach(IT first, IT last, FN function)
@@ -44,27 +40,31 @@ FN foreach(IT first, IT last, FN function)
 	const int num_potok = 3;
 	auto sizeContainer{ last - first };
 	auto sizebl{ sizeContainer / num_potok };
-	auto lbd = [](IT it, IT end, FN& function) {for (; it != end; ++it) function(*it); return function; };
-	std::future<FN> as;
-
-	//auto start = std::chrono::steady_clock::now();
-	/*
-	*/
-	for (int k = 0; k < num_potok; ++k)
+	auto lbd = [](IT it, IT end, FN& function) -> FN
 	{
-		IT it = first + sizebl * k, end;
-		if (k != (num_potok - 1)) end = it + sizebl;
-		else end = last;
-		as = std::async(lbd, it, end, function);
-	}
+		for (; it != end; ++it)
+		{
+			std::lock_guard<std::mutex> grd(m);
+			function(*it);
+		}
+		return function;
+	};
 
+	// делю задачу на потоки
+	IT it = first;
+	int count{ num_potok - 1 };
+	while (--count)
+	{
+		IT end = it + sizebl;
+		auto as = std::async(std::launch::async, lbd, it, end, std::ref(function));
+		it += sizebl;
+	}
+	lbd(it, last, std::ref(function));
+
+	// тоже самое в один поток
 	//for (; first != last; ++first) function(*first);
 
-	//auto endt = std::chrono::steady_clock::now();
-	//std::chrono::duration<double, std::micro> delta = endt - start;
-	//std::wcout << "\ntime: " << delta.count();
-
-	return as.get();
+	return function;
 }
 
 
