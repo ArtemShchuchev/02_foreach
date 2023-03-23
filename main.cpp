@@ -50,6 +50,8 @@ FN foreach(IT first, IT last, FN function)
 		return function;
 	};
 
+	//auto startt = std::chrono::steady_clock::now();
+
 	// делю задачу на потоки
 	IT it = first;
 	int count{ num_potok - 1 };
@@ -57,12 +59,16 @@ FN foreach(IT first, IT last, FN function)
 	{
 		IT end = it + sizebl;
 		auto as = std::async(std::launch::async, lbd, it, end, std::ref(function));
-		it += sizebl;
+		it = end;
 	}
 	lbd(it, last, std::ref(function));
 
 	// тоже самое в один поток
 	//for (; first != last; ++first) function(*first);
+
+	//auto endt = std::chrono::steady_clock::now();
+	//std::chrono::duration<double, std::micro> delta = endt - startt;
+	//std::wcout << "Time: " << delta.count() << "  ";
 
 	return function;
 }
